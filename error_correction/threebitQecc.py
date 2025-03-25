@@ -8,27 +8,23 @@ qreg = QuantumRegister(3, 'q')
 creg = ClassicalRegister(1, 'c')
 qc = QuantumCircuit(qreg, creg)
 
-# Encode a bit-flip error correction code (assume starting in |0⟩ state)
-qc.h(0)        # Hadamard for superposition
-qc.cx(0, 1)    # Copy state to qubit 1
-qc.cx(0, 2)    # Copy state to qubit 2
+# encode a bit-flip error correction code 
+qc.h(0)        #  superposition
+qc.cx(0, 1)    # copy state to qubit 1
+qc.cx(0, 2)    # copy state to qubit 2
 
-# Introduce an error (simulate a bit-flip on qubit 1)
-qc.x(1)  # Flip qubit 1
+# Introduce a flip bit error
+qc.x(1)  
 
-# Error Correction: Detect & Correct
+# error correction
 qc.cx(1, 0)
 qc.cx(2, 0)
 
-# Measurement
 qc.measure(0, 0)
-
-# Run the circuit on AerSimulator
 simulator = AerSimulator()
 result = simulator.run(qc).result()
 counts = result.get_counts()
 
-# Visualize results
 print(counts)
 plot_histogram(counts)
-plt.show()  # Ensure the plot is displayed
+plt.show() 

@@ -9,24 +9,23 @@ from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifi
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score
 
-# Define quantum circuit
-num_qubits = 8  # Increased qubits
+# Define circuit
+num_qubits = 8  
 qc = QuantumCircuit(num_qubits)
 
-# Define input parameters
+# input parameters
 input_params = ParameterVector("x", length=num_qubits)
 theta = ParameterVector("\u03b8", length=num_qubits)
 
-# Add parameterized gates
+# add parameterized gates
 for i in range(num_qubits):
     qc.ry(input_params[i], i)
     qc.rz(theta[i], i)
 
-# Display Quantum Circuit
 # qc.draw("mpl")
 # plt.show()
 
-# Define Quantum Neural Network
+# Quantum Neural Network
 estimator = StatevectorEstimator()
 qnn = EstimatorQNN(circuit=qc, input_params=input_params, weight_params=theta, estimator=estimator)
 
@@ -34,27 +33,27 @@ qnn = EstimatorQNN(circuit=qc, input_params=input_params, weight_params=theta, e
 optimizer = COBYLA()
 quantum_classifier = NeuralNetworkClassifier(neural_network=qnn, optimizer=optimizer)
 
-# Generate Larger Dataset
+# random data set
 X_train = np.random.rand(2000, num_qubits)
 y_train = np.random.randint(0, 2, 2000)
 
 X_test = np.random.rand(500, num_qubits)
 y_test = np.random.randint(0, 2, 500)
 
-# Train Quantum Classifier
+# train Quantum 
 quantum_classifier.fit(X_train, y_train)
 y_pred_quantum = quantum_classifier.predict(X_test)
 
-# Classical MLP Classifier for Comparison
+# Classical MLP Classifier
 classical_classifier = MLPClassifier(hidden_layer_sizes=(32, 16, 8), max_iter=1000)
 classical_classifier.fit(X_train, y_train)
 y_pred_classical = classical_classifier.predict(X_test)
 
-# Calculate Accuracies
+# calculate accuracies
 quantum_accuracy = accuracy_score(y_test, y_pred_quantum)
 classical_accuracy = accuracy_score(y_test, y_pred_classical)
 
-# Plot Comparison
+# Comparison
 labels = ["Quantum Classifier", "Classical MLP"]
 accuracies = [quantum_accuracy, classical_accuracy]
 
