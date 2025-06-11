@@ -1,4 +1,3 @@
-
 import numpy as np
 import os
 import torch
@@ -15,6 +14,10 @@ FINE_TUNE = True
 FINE_TUNE_TIMESTEPS = 100_000
 FINE_TUNE_LR = 1e-4
 FINE_TUNE_ENT_COEF = 0.01
+
+# TensorBoard parameters
+USE_TENSORBOARD = False  # Set to True if tensorboard is installed
+TENSORBOARD_LOG_DIR = "./ppo_logs/"
 
 def initialize_cuda():
     if not torch.cuda.is_available():
@@ -160,9 +163,10 @@ if __name__ == "__main__":
                 model = PPO.load(model_path, env=env, device=device)
             else:
                 print(" Training new model...")
+                tensorboard_log = f"{TENSORBOARD_LOG_DIR}{mode}/" if USE_TENSORBOARD else None
                 model = PPO("MlpPolicy", env, verbose=1, ent_coef=0.1, device=device,
                             policy_kwargs=dict(net_arch=[128, 128]),
-                            tensorboard_log=f"./ppo_logs_{mode}/")
+                            tensorboard_log=tensorboard_log)
                 if prev_model:
                     model.policy.load_state_dict(prev_model.policy.state_dict())
                 model.learn(total_timesteps=1_000_000)

@@ -90,4 +90,46 @@ tensorboard --logdir=./ppo_logs_*
 
 ---
 
+## 📘 Appendix: Mathematical Formulation
+
+This RL-based quantum circuit synthesizer solves a **Markov Decision Process (MDP)**:
+
+\[
+\mathcal{M} = (\mathcal{S}, \mathcal{A}, \mathcal{T}, R, \gamma)
+\]
+
+- **State space**: Each \( s_t \) is a real-encoded vector of a quantum state \( |\psi_t\rangle \in \mathbb{C}^{2^n} \)
+\[
+\text{obs}(s_t) = \begin{bmatrix} \Re(\psi_t) \\ \Im(\psi_t) \end{bmatrix} \in \mathbb{R}^{2^{n+1}}
+\]
+
+- **Action space**: Discrete gate set:
+\[
+\mathcal{A} = \{ H_i, X_i, RY_i(\theta), CX_{i,j} \}
+\]
+
+- **Transitions**: Apply unitary gate:
+\[
+|\psi_{t+1}\rangle = G(a_t) |\psi_t\rangle
+\]
+
+- **Reward**:
+\[
+r_t = \alpha (\mathcal{F}_t - \mathcal{F}_{t-1}) + \beta \cdot \mathcal{S}_{\text{ent}}(t)
+\]
+
+where:
+- \( \mathcal{F}_t = |\langle \psi_{\text{target}} | \psi_t \rangle|^2 \) (fidelity)
+- \( \mathcal{S}_{\text{ent}} \): entanglement entropy of reduced state
+- \( \alpha, \beta \): weighting coefficients
+
+- **Policy optimization**: PPO agent learns:
+\[
+\pi_\theta(a_t | s_t) \quad \text{to maximize} \quad \mathbb{E}_{\pi_\theta} \left[ \sum_t r_t \right]
+\]
+
+This framework supports curriculum transfer, fidelity tracking, and custom target state synthesis.
+
+-----
+
 Built by Kunal + Nibi ♥
