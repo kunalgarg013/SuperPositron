@@ -371,15 +371,28 @@ def run_consciousness_transfer_experiment(pretrained_model_paths: Dict[str, str]
             # Evaluate
             fidelities = []
             for episode in range(config["evaluation_episodes"]):
-                obs, _ = envs[i].reset()  # Unpack reset return value
+                reset_result = envs[i].reset()
+                if isinstance(reset_result, tuple):
+                    obs, _ = reset_result
+                else:
+                    obs = reset_result
                 done = False
                 episode_fidelities = []
                 
                 while not done:
                     action, _ = model.predict(obs, deterministic=True)
-                    obs, reward, done, truncated, info = envs[i].step(action)
+                    step_result = envs[i].step(action)
+                    if len(step_result) == 5:
+                        obs, reward, done, truncated, info = step_result
+                    else:
+                        obs, reward, done, info = step_result
+                        truncated = False  # Set default value for older Gym API
+                    
+                    # Handle info from vectorized environment
+                    if isinstance(info, list):
+                        info = info[0]  # Get first environment's info
                     episode_fidelities.append(info.get('fidelity', 0.0))
-                    done = done or truncated
+                    done = done or truncated  # Now truncated is always defined
 
                 if episode_fidelities:
                     fidelities.append(max(episode_fidelities))
