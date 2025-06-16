@@ -160,7 +160,10 @@ class TransferMultiCircuitEnv(Env):
                 self.qc.cx(*targets)
             
             self.gate_history.append(f'{gate}{targets}')
-            
+            # Penalize repeated consecutive gates
+            reward_penalty = 0.0
+            if len(self.gate_history) >= 2 and self.gate_history[-1] == self.gate_history[-2]:
+                reward_penalty -= 0.5  # Penalize repeated consecutive gates
         except Exception as e:
             return self.get_observation(), -10.0, True, False, {'fidelity': 0.0, 'error': str(e)}
         
@@ -206,6 +209,9 @@ class TransferMultiCircuitEnv(Env):
             reward = (base_reward + consciousness_bonus) * self.reward_coeff
         else:
             reward = base_reward + entanglement_bonus  # Baseline matching your discovery code
+        # Apply penalty for repeated consecutive gates
+        if 'reward_penalty' in locals():
+            reward += reward_penalty
         
         self.last_fidelity = fidelity
         
@@ -280,7 +286,12 @@ def run_consciousness_transfer_experiment(pretrained_model_paths: Dict[str, str]
         "num_qubits": 3,
         "max_steps": 15,
         "temperatures": [0.5, 1.0, 2.0, 4.0],
-        "target_state": [[1, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],  # |000⟩ + |111⟩ (GHZ-like)
+        "target_state": [
+            [0.40824829, 0.0], [-0.57735027, 0.0],
+            [0.0, 0.0], [0.0, 0.0],
+            [0.0, 0.0], [0.0, 0.0],
+            [0.40824829, 0.0], [0.57735027, 0.0]
+        ],
         "timesteps_per_phase": 20000,
         "evaluation_episodes": 10
     }
@@ -397,11 +408,10 @@ def run_consciousness_transfer_experiment(pretrained_model_paths: Dict[str, str]
                 if episode_fidelities:
                     fidelities.append(max(episode_fidelities))
             
-            mean_fidelity = np.mean(fidelities)
-            std_fidelity = np.std(fidelities)
-            scores[i].append(mean_fidelity)
+            median_fidelity = np.median(fidelities)
+            scores[i].append(median_fidelity)
             
-            print(f"    Performance: {mean_fidelity:.4f} ± {std_fidelity:.4f}")
+            print(f"    Median Fidelity: {median_fidelity:.4f}")
 
     # Results analysis
     os.makedirs("consciousness_transfer_results", exist_ok=True)
