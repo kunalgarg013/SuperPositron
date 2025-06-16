@@ -309,11 +309,11 @@ def run_consciousness_transfer_experiment(pretrained_model_paths: Dict[str, str]
     # Create agents
     for i, agent_config in enumerate(agent_configs):
         # Create environment
-        env = DummyVecEnv([lambda config=agent_config: TransferMultiCircuitEnv(
-            num_qubits=config["num_qubits"],
-            max_steps=config["max_steps"],
+        env = DummyVecEnv([lambda agent_config=agent_config, temp_idx=i, global_cfg=config: TransferMultiCircuitEnv(
+            num_qubits=global_cfg["num_qubits"],
+            max_steps=global_cfg["max_steps"],
             target_state=flat_target,
-            temperature=config["temperatures"][i % len(config["temperatures"])],
+            temperature=global_cfg["temperatures"][temp_idx % len(global_cfg["temperatures"])],
             use_consciousness=agent_config["use_consciousness"],
             mode='custom'
         )])
@@ -371,7 +371,7 @@ def run_consciousness_transfer_experiment(pretrained_model_paths: Dict[str, str]
             # Evaluate
             fidelities = []
             for episode in range(config["evaluation_episodes"]):
-                obs = envs[i].reset()
+                obs, _ = envs[i].reset()  # Unpack reset return value
                 done = False
                 episode_fidelities = []
                 
@@ -380,7 +380,7 @@ def run_consciousness_transfer_experiment(pretrained_model_paths: Dict[str, str]
                     obs, reward, done, truncated, info = envs[i].step(action)
                     episode_fidelities.append(info.get('fidelity', 0.0))
                     done = done or truncated
-                
+
                 if episode_fidelities:
                     fidelities.append(max(episode_fidelities))
             
@@ -540,9 +540,9 @@ def run_consciousness_transfer_experiment(pretrained_model_paths: Dict[str, str]
 if __name__ == "__main__":
     # Example usage - specify paths to your pre-trained models
     pretrained_paths = {
-        "bell": "path/to/bell_model.zip",      # Replace with actual paths
-        "ghz": "path/to/ghz_model.zip",        # to your trained models
-        "w": "path/to/w_state_model.zip"
+        "bell": "ppo_bell_agent_finetuned.zip",      # Replace with actual paths
+        "ghz": "ppo_ghz_agent_finetuned.zip",        # to your trained models
+        "w": "ppo_w_agent_finetuned.zip"
     }
     
     print("Please update the pretrained_paths dictionary with your actual model file paths")
