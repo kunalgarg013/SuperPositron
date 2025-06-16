@@ -66,16 +66,19 @@ class MultiCircuitEnv(Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        if seed is not None:
+            np.random.seed(seed)
+            torch.manual_seed(seed)
         self._reset_circuit()
         return self.get_observation(), {}
 
 def swap_models(model_a, model_b):
     for p1, p2 in zip(model_a.policy.parameters(), model_b.policy.parameters()):
-        p1.data, p2.data = deepcopy(p2.data), deepcopy(p1.data)
+        p1.data, p2.data = p2.data.clone(), p1.data.clone()
 
 def smooth_fidelity(fids, alpha=0.2):
     smoothed = [fids[0]]
-    for f in fids[1:]:
+    for f in fids[1:]:  # f be fidelity
         smoothed.append(alpha * f + (1 - alpha) * smoothed[-1])
     return smoothed
 

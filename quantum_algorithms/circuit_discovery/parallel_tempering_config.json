@@ -1,0 +1,50 @@
+{
+    "num_qubits": 3,
+    "max_steps": 15,
+    "target_state": [
+        [
+            0.40824829,
+            0.0
+        ],
+        [
+            -0.57735027,
+            0.0
+        ],
+        [
+            0.0,
+            0.0
+        ],
+        [
+            0.0,
+            0.0
+        ],
+        [
+            0.0,
+            0.0
+        ],
+        [
+            0.0,
+            0.0
+        ],
+        [
+            0.40824829,
+            0.0
+        ],
+        [
+            0.57735027,
+            0.0
+        ]
+    ],
+    "timesteps_per_agent": 500000,
+    "fine_tune_timesteps": 100000,
+    "temperatures": [
+        0.1,
+        0.5,
+        1.0,
+        2.0
+    ],
+    "swap_interval": 50000,
+    "log_dir": "./pt_logs/",
+    "save_best_model": true,
+    "tensorboard": true
+}
