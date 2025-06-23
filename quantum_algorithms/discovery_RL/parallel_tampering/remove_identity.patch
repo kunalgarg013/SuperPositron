@@ -1,0 +1,32 @@
+--- ppo_with_identity_V2.py
++++ ppo_with_identity_V2.py
+@@
+- from identity_regularizer import IdentityRegularizer
+  from qiskit import QuantumCircuit
+  from qiskit.visualization import circuit_drawer
+@@ 715,12 +715,6 @@
+             {"name": "Fresh Agent",        "pretrained": None,          "description": "No pre-training",          "temperature": 1.2, 
+-            "use_identity_module": False},
++           },
+             {"name": "Bell-Trained Agent",  "pretrained": ["bell"],      "description": "Only bell states",       "temperature": 1.0,
+-            "use_identity_module": False},
++           },
+             {"name": "GHZ-Trained Agent",   "pretrained": ["ghz"],       "description": "Only GHZ states",        "temperature": 0.8,
+-            "use_identity_module": False},
++           },
+             {"name": "W-Trained Agent",     "pretrained": ["w"],         "description": "Only W states",          "temperature": 0.6,
+-            "use_identity_module": False},
++           },
+             {"name": "Multi-Trained Agent", "pretrained": ["ghz","bell","w"], "description": "Mixed qubit states", "temperature": 0.4,
+-            "use_identity_module": False}
++           }
+         ]
+ 
+@@ 765,8 +759,6 @@
+         model = PPO("MlpPolicy", env, **ppo_kwargs)
+ 
+-        if agent_config.get("use_identity_module", False):
+-            model.identity_regularizer = IdentityRegularizer(coeff=0.01)
+ 
+         # load pretrained if requested
+         if agent_config["pretrained"]:

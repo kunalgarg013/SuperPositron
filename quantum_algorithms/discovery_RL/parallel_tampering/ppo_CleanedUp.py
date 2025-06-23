@@ -688,6 +688,7 @@ def evaluate_agent(model, env, episodes: int = 10, return_all: bool = False):
     return all_episode_fidelities
 
 def run_five_agent_experiment(
+    pretrained_model_paths: Dict[str, str],
     config: dict,
     training_steps: int = 50000,
     evaluation_episodes: int = 10,
@@ -697,15 +698,15 @@ def run_five_agent_experiment(
     enable_parallel_tempering: bool = True,
     tempering_interval: int = 5000,
     exchange_probability: float = 0.1
+):
+    """Run experiment with 5 PPO agents with different training backgrounds and optional parallel tempering"""
+    # Reproducibility seeds
     seed = config.get("seed")
     if seed is not None:
         import random
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
-        pretrained_model_paths: Dict[str, str],
-):
-    """Run experiment with 5 PPO agents with different training backgrounds and optional parallel tempering"""
     print("Five-Agent PPO Comparison Experiment with Parallel Tempering")
     print("=" * 70)
 
@@ -1527,7 +1528,16 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=None, help="Set random seed")
     parser.add_argument("--no-normalize", action="store_true", help="Disable env normalization")
     args = parser.parse_args()
-    if args.learning_rate is not None: config["learning_rate"] = args.learning_rate
+
+    # Load and merge configuration
+    config = get_default_config()
+    if os.path.exists(args.config):
+        loaded_config = load_config(args.config)
+        config.update(loaded_config)
+
+    # Override config with CLI args
+    if args.learning_rate is not None:
+        config["learning_rate"] = args.learning_rate
     config["use_lr_schedule"] = not args.no_lr_schedule
     config["seed"]            = args.seed
     config["normalize_env"]   = not args.no_normalize
@@ -1538,13 +1548,6 @@ if __name__ == "__main__":
     else:
         enable_tempering = args.enable_parallel_tempering
 
-    # Load and validate config
-    config = get_default_config()  # Start with defaults
-    if os.path.exists(args.config):
-        loaded_config = load_config(args.config)
-        # Update default config with loaded values
-        config.update(loaded_config)
-    
     # Validate required parameters
     required_params = ["num_qubits", "max_steps", "mode"]
     missing_params = [param for param in required_params if param not in config]
