@@ -248,7 +248,7 @@ if __name__ == '__main__':
     # Example usage
     N = 4
     m, g, x = 1.0, 1.0, 1.0
-    t, steps = 1.0, 5
+    t, steps = 10.0, 5
     shots = 1024
 
     # Full circuit: initial state + evolution + measurement
