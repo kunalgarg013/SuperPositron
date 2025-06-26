@@ -29,11 +29,7 @@ def get_w_statevector(num_qubits=3):
     return Statevector.from_instruction(qc)
 
 def get_w_gate_sequence():
-    """
-    Returns gate sequence approximating a 3-qubit W state:
-    (|001⟩ + |010⟩ + |100⟩) / sqrt(3)
-    Approximate version using standard RY + CNOT ladder
-    """
+    """Returns gate sequence for a 3-qubit W state"""
     return [
         {'gate': 'ry', 'qubit': 0, 'angle': 2.0944},   # π / 1.5
         {'gate': 'cx', 'qubits': [0, 1]},
@@ -42,3 +38,24 @@ def get_w_gate_sequence():
         {'gate': 'ry', 'qubit': 2, 'angle': -1.5708}
     ]
 
+def get_ghz_gate_sequence(num_qubits=3):
+    """Returns gate sequence for GHZ state"""
+    qc = QuantumCircuit(num_qubits)
+    qc.h(0)
+    for i in range(num_qubits - 1):
+        qc.cx(i, i + 1)
+
+    sequence = []
+    for instr, qargs, _ in qc.data:
+        if instr.name == 'h':
+            sequence.append({'gate': 'h', 'qubit': qargs[0]._index})
+        elif instr.name in ['cx', 'cz']:
+            sequence.append({'gate': instr.name, 'qubits': [qargs[0]._index, qargs[1]._index]})
+    return sequence
+
+def get_bell_gate_sequence():
+    """Returns gate sequence for Bell state"""
+    return [
+        {'gate': 'h', 'qubit': 0},
+        {'gate': 'cx', 'qubits': [0, 1]}
+    ]
