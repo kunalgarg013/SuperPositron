@@ -3,11 +3,12 @@ import numpy as np
 import copy
 from qiskit import QuantumCircuit
 
-# Supported gate types
+# Expanded gate sets
 SINGLE_QUBIT_PARAM_GATES = ['rx', 'ry', 'rz']
-SINGLE_QUBIT_FIXED_GATES = ['h']
-TWO_QUBIT_GATES = ['cz', 'cx']
-ALL_GATES = SINGLE_QUBIT_PARAM_GATES+ SINGLE_QUBIT_FIXED_GATES + TWO_QUBIT_GATES
+SINGLE_QUBIT_FIXED_GATES = ['h', 'x', 'y', 's', 't', 'sx', 'id']
+TWO_QUBIT_GATES = ['cx', 'cz', 'swap']
+THREE_QUBIT_GATES = ['ccx', 'cswap']
+ALL_GATES = SINGLE_QUBIT_PARAM_GATES + SINGLE_QUBIT_FIXED_GATES + TWO_QUBIT_GATES + THREE_QUBIT_GATES
 
 class QuantumCircuitCandidate:
     def __init__(self, num_qubits, max_depth, gate_sequence=None):
@@ -21,46 +22,73 @@ class QuantumCircuitCandidate:
         for _ in range(random.randint(1, max_gates)):
             self.add_gate()
 
-    # def add_gate(self):
-    #     if random.random() < 0.1:
-    #     gate = random.choice(ALL_GATES)
-    #     if gate in SINGLE_QUBIT_GATES:
-    #         qubit = random.randint(0, self.num_qubits - 1)
-    #         angle = random.uniform(0, 2 * np.pi)
-    #         self.gate_sequence.append({'gate': gate, 'qubit': qubit, 'angle': angle})
-    #     else:
-    #         q1, q2 = random.sample(range(self.num_qubits), 2)
-    #         self.gate_sequence.append({'gate': gate, 'qubits': [q1, q2]})
     def add_gate(self):
-        if random.random() < 0.1:
-            # Insert 2-layer entangler block
+        gate = random.choice(ALL_GATES)
+
+        if gate in SINGLE_QUBIT_PARAM_GATES:
+            qubit = random.randint(0, self.num_qubits - 1)
+            angle = random.uniform(0, 2 * np.pi)
+            self.gate_sequence.append({'gate': gate, 'qubit': qubit, 'angle': angle})
+
+        elif gate in SINGLE_QUBIT_FIXED_GATES:
+            qubit = random.randint(0, self.num_qubits - 1)
+            self.gate_sequence.append({'gate': gate, 'qubit': qubit})
+
+        elif gate in TWO_QUBIT_GATES:
+            if self.num_qubits < 2:
+                return
             q1, q2 = random.sample(range(self.num_qubits), 2)
-            self.gate_sequence.append({'gate': 'h', 'qubit': q1})
-            self.gate_sequence.append({'gate': 'cx', 'qubits': [q1, q2]})
-            return
+            self.gate_sequence.append({'gate': gate, 'qubits': [q1, q2]})
 
+        elif gate in THREE_QUBIT_GATES:
+            if self.num_qubits < 3:
+                return
+            q1, q2, q3 = random.sample(range(self.num_qubits), 3)
+            self.gate_sequence.append({'gate': gate, 'qubits': [q1, q2, q3]})
 
-    def remove_gate(self):
-        if self.gate_sequence:
-            idx = random.randint(0, len(self.gate_sequence) - 1)
-            del self.gate_sequence[idx]
+    def to_qiskit_circuit(self):
+        qc = QuantumCircuit(self.num_qubits)
+        for g in self.gate_sequence:
+            gate = g['gate']
+            if gate in SINGLE_QUBIT_PARAM_GATES:
+                getattr(qc, gate)(g['angle'], g['qubit'])
+            elif gate in SINGLE_QUBIT_FIXED_GATES:
+                getattr(qc, gate)(g['qubit'])
+            elif gate in TWO_QUBIT_GATES:
+                qc.__getattribute__(gate)(*g['qubits'])
+            elif gate == 'ccx':
+                qc.ccx(*g['qubits'])
+            elif gate == 'cswap':
+                qc.cswap(*g['qubits'])
+        return qc
+
+    def copy(self):
+        return QuantumCircuitCandidate(
+            self.num_qubits,
+            self.max_depth,
+            gate_sequence=copy.deepcopy(self.gate_sequence)
+        )
 
     def mutate_gate(self):
         if not self.gate_sequence:
             return
         idx = random.randint(0, len(self.gate_sequence) - 1)
         gate_info = self.gate_sequence[idx]
+        gate = gate_info['gate']
 
-        if gate_info['gate'] in SINGLE_QUBIT_PARAM_GATES:
-            # Randomly tweak angle or qubit
+        if gate in SINGLE_QUBIT_PARAM_GATES:
             if random.random() < 0.5:
                 gate_info['angle'] += random.uniform(-0.5, 0.5)
             else:
                 gate_info['qubit'] = random.randint(0, self.num_qubits - 1)
-        else:
-            # Change qubits
+        elif gate in SINGLE_QUBIT_FIXED_GATES:
+            gate_info['qubit'] = random.randint(0, self.num_qubits - 1)
+        elif gate in TWO_QUBIT_GATES:
             q1, q2 = random.sample(range(self.num_qubits), 2)
             gate_info['qubits'] = [q1, q2]
+        elif gate in THREE_QUBIT_GATES:
+            q1, q2, q3 = random.sample(range(self.num_qubits), 3)
+            gate_info['qubits'] = [q1, q2, q3]
 
     def mutate(self, mutation_rate=0.3):
         if random.random() < mutation_rate:
@@ -70,23 +98,10 @@ class QuantumCircuitCandidate:
         if random.random() < mutation_rate:
             self.remove_gate()
 
-    def to_qiskit_circuit(self):
-        qc = QuantumCircuit(self.num_qubits)
-        for g in self.gate_sequence:
-            if g['gate'] in SINGLE_QUBIT_PARAM_GATES:
-                getattr(qc, g['gate'])(g['angle'], g['qubit'])
-            elif g['gate'] in SINGLE_QUBIT_FIXED_GATES:
-                getattr(qc, g['gate'])(g['qubit'])
-            elif g['gate'] in TWO_QUBIT_GATES:
-                getattr(qc, g['gate'])(g['qubits'][0], g['qubits'][1])
-        return qc
-
-    def copy(self):
-        return QuantumCircuitCandidate(
-            self.num_qubits,
-            self.max_depth,
-            gate_sequence=copy.deepcopy(self.gate_sequence)
-        )
+    def remove_gate(self):
+        if self.gate_sequence:
+            idx = random.randint(0, len(self.gate_sequence) - 1)
+            del self.gate_sequence[idx]
 
     def describe(self):
         print(f"QuantumCircuitCandidate with {len(self.gate_sequence)} gates")
