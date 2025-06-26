@@ -1,54 +1,7 @@
 import random
-from copy import deepcopy
-from qiskit import QuantumCircuit
 from circuit_representation import QuantumCircuitCandidate
 from fitness_evaluation import compute_fitness
 from parameter_optimizer import optimize_parameters
-from known_states import get_ghz_statevector
-
-def crossover(parent1, parent2):
-    gates1 = parent1.gate_sequence
-    gates2 = parent2.gate_sequence
-
-    if not gates1 or not gates2:
-        return parent1.copy()
-
-    cut1 = random.randint(1, len(gates1))
-    cut2 = random.randint(1, len(gates2))
-
-    child_sequence = gates1[:cut1] + gates2[cut2:]
-    child = QuantumCircuitCandidate(parent1.num_qubits, parent1.max_depth)
-    child.gate_sequence = deepcopy(child_sequence)
-    return child
-
-def ghz_circuit_gate_sequence(num_qubits):
-    """Returns gate sequence for GHZ state"""
-    qc = QuantumCircuit(num_qubits)
-    qc.h(0)
-    for i in range(num_qubits - 1):
-        qc.cx(i, i + 1)
-
-    sequence = []
-    for instr, qargs, _ in qc.data:
-        if instr.name == 'h':
-            sequence.append({'gate': 'h', 'qubit': qargs[0]._index})
-        elif instr.name in ['cx', 'cz']:
-            sequence.append({'gate': instr.name, 'qubits': [qargs[0]._index, qargs[1]._index]})
-    return sequence
-
-    """Returns gate sequence for GHZ state"""
-    qc = QuantumCircuit(num_qubits)
-    qc.h(0)
-    for i in range(num_qubits - 1):
-        qc.cx(i, i + 1)
-
-    sequence = []
-    for instr, qargs, _ in qc.data:
-        if instr.name == 'h':
-            sequence.append({'gate': 'h', 'qubit': qargs[0]._index})
-        elif instr.name == 'cx':
-            sequence.append({'gate': 'cx', 'qubits': [qargs[0]._index, qargs[1]._index]})
-    return sequence
 
 class Population:
     def __init__(self, size, num_qubits, max_depth, alpha=0.05, beta=0.01):
@@ -59,51 +12,65 @@ class Population:
         self.beta = beta
         self.individuals = []
 
-    def initialize(self):
+    def initialize(self, seed_gate_sequence=None):
         self.individuals = []
-
-        # Inject one known GHZ circuit
-        seed = QuantumCircuitCandidate(self.num_qubits, self.max_depth)
-        seed.gate_sequence = ghz_circuit_gate_sequence(self.num_qubits)
-        self.individuals.append(seed)
-        
         for _ in range(self.size):
-            ind = QuantumCircuitCandidate(self.num_qubits, self.max_depth)
-            ind.random_initialize()
-            self.individuals.append(ind)
+            circuit = QuantumCircuitCandidate(self.num_qubits, self.max_depth)
+            if seed_gate_sequence:
+                circuit.gate_sequence = seed_gate_sequence.copy()
+            else:
+                circuit.random_initialize()
+            self.individuals.append(circuit)
 
-    def evaluate(self, target_state):
+    def evaluate(self, target_state, gamma=0.0):
         scores = []
         for ind in self.individuals:
-            fitness = compute_fitness(ind, target_state, self.alpha, self.beta)
+            fitness = compute_fitness(ind, target_state, self.alpha, self.beta, gamma=gamma)
             scores.append((fitness, ind))
         scores.sort(reverse=True, key=lambda x: x[0])
         return scores
 
-    def evolve(self, target_state, retain_top_k=5, mutate_rate=0.3, crossover_rate=0.4, optimize_top_k=True):
-        """
-        Evolve the population using mutation, crossover, and optional parameter optimization.
-        """
-        scored = self.evaluate(target_state)
-        top_individuals = [ind.copy() for _, ind in scored[:retain_top_k]]
+    def crossover(self, parent1, parent2):
+        child = QuantumCircuitCandidate(self.num_qubits, self.max_depth)
+        p1_seq = parent1.gate_sequence
+        p2_seq = parent2.gate_sequence
+        min_len = min(len(p1_seq), len(p2_seq))
+        if min_len < 2:
+            return random.choice([parent1, parent2]).copy()
+        split = random.randint(1, min_len - 1)
+        child.gate_sequence = p1_seq[:split] + p2_seq[split:]
+        return child
 
+    def evolve(self, target_state, retain_top_k=5, mutate_rate=0.3, crossover_rate=0.4, optimize_top_k=True, gamma=0.0):
+        scored = self.evaluate(target_state, gamma=gamma)
+        top_k = [ind.copy() for _, ind in scored[:retain_top_k]]
+
+        # Optional optimization of elite individuals
         if optimize_top_k:
-            for i in range(len(top_individuals)):
-                top_individuals[i] = optimize_parameters(
-                    top_individuals[i], target_state,
-                    alpha=self.alpha, beta=self.beta,
-                    steps=50, lr=0.1
-                )
+            for ind in top_k:
+                optimize_parameters(ind, target_state, steps=200, lr=0.01)
 
-        new_generation = []
-        while len(new_generation) < self.size:
-            if random.random() < crossover_rate and len(top_individuals) > 1:
-                p1, p2 = random.sample(top_individuals, 2)
-                child = crossover(p1, p2)
+        # Generate offspring
+        offspring = []
+        while len(offspring) < self.size - retain_top_k:
+            if random.random() < crossover_rate and len(top_k) >= 2:
+                parent1 = random.choice(top_k)
+                parent2 = random.choice(top_k)
+                child = self.crossover(parent1, parent2)
             else:
-                child = random.choice(top_individuals).copy()
-                child.mutate(mutation_rate=mutate_rate)
-            new_generation.append(child)
+                child = random.choice(top_k).copy()
+            child.mutate(mutation_rate=mutate_rate)
+            offspring.append(child)
 
-        self.individuals = new_generation
-        return self.evaluate(target_state)[0][0]  # Return best fitness after optimization
+        # Inject a few fresh random candidates
+        n_fresh = max(1, self.size // 10)
+        fresh = []
+        for _ in range(n_fresh):
+            c = QuantumCircuitCandidate(self.num_qubits, self.max_depth)
+            c.random_initialize()
+            fresh.append(c)
+
+        # Form next generation
+        self.individuals = top_k + offspring[:self.size - retain_top_k - n_fresh] + fresh
+
+        return self.evaluate(target_state, gamma=gamma)[0][0]
